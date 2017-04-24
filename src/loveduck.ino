@@ -266,6 +266,9 @@ void sendOSCMsg()
 
   if (piezo_OK == true)
   {
+    OSCMessage outMessage("/duck/piezo");
+    outMessage.addInt(1);
+    outMessage.send(udp,outIP,outPort);
     delay(1);
     piezo_OK = false;
   }
@@ -303,6 +306,8 @@ void checkSensors()
       checkGyro();
       checkFSR();
       checkWhisper();
+      checkPiezo();
+
 
       break;
 
@@ -413,7 +418,7 @@ void checkPiezo()
 {
   piezoValue = analogRead(piezoAnalogPin);
   //Serial.println(piezoValue);
-  if(piezoValue > 2000)
+  if(piezoValue > 500)
   {
     piezo_OK = true;
   }
