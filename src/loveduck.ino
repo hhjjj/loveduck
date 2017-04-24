@@ -16,7 +16,7 @@ SYSTEM_THREAD(ENABLED);
 // FLORA neopixel
 #define PIXEL_PIN D2
 #define PIXEL_COUNT 4
-#define PIXEL_TYPE WS2811
+#define PIXEL_TYPE WS2812B
 
 // MODE
 typedef enum
@@ -102,11 +102,33 @@ void setup()
   initWifi();
   initBoard();
 
-  tone(buzzerPin, 4000,100);
-  delay(600);
+  int i;
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(0,0,0));
+  }
+  strip.show();
+
 
   tone(buzzerPin, 4000,100);
   delay(600);
+
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(255,255,255));
+  }
+  strip.show();
+
+
+
+  tone(buzzerPin, 4000,100);
+  delay(600);
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(0,0,0));
+  }
+  strip.show();
+
 }
 
 void loop()
@@ -121,18 +143,7 @@ void loop()
     sendOSC_OK = false;
   }
 
-  // int cnt;
-  //
-  // for (cnt=0; cnt< 50; cnt++)
-  // {
-  //   OSCMessage outMessage("/pong");
-  //   outMessage.addString("test");
-  //   outMessage.addFloat(-3.14);
-  //   outMessage.addInt(cnt);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //
-  // }
+
 
 	Particle.process();
 }
@@ -148,6 +159,10 @@ void initPort()
   pinMode(touch_A_Pin, INPUT);
   pinMode(touch_B_Pin, INPUT);
   pinMode(ledPin, OUTPUT);
+
+  // neopiex led
+  strip.begin();
+  strip.show();
 }
 
 void initWifi()
@@ -216,6 +231,8 @@ void setMode(LOVEDUCK_MODE mode)
 
 void sendOSCMsg()
 {
+
+
   if (touch_A_OK == true)
   {
     delay(1);
@@ -230,10 +247,12 @@ void sendOSCMsg()
 
   if (accel_OK == true)
   {
+    pixelOn();
     OSCMessage outMessage("/duck/accel");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
+    pixelOff();
     accel_OK = false;
   }
 
@@ -257,19 +276,23 @@ void sendOSCMsg()
 
   if (whisper_OK == true)
   {
+    pixelOn();
     OSCMessage outMessage("/duck/whisper");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
+    pixelOff();
     whisper_OK = false;
   }
 
   if (piezo_OK == true)
   {
+    pixelOn();
     OSCMessage outMessage("/duck/piezo");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
+    pixelOff();
     piezo_OK = false;
   }
 
@@ -442,4 +465,24 @@ void checkWhisper()
   {
     whisper_OK = true;
   }
+}
+
+void pixelOn()
+{
+  int i;
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(255,0,0));
+  }
+  strip.show();
+}
+
+void pixelOff()
+{
+  int i;
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(0,0,0));
+  }
+  strip.show();
 }
