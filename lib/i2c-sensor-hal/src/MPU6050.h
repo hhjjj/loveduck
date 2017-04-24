@@ -88,8 +88,8 @@ public:
         setClockSource(MPU6050_CLOCK_PLL);
 
         // Set the sensitivity to max on gyro and accel
-        setFullScaleGyroRange(MPU6050_GYRO_FS_250);
-        setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+        setFullScaleGyroRange(MPU6050_GYRO_FS_1000);
+        setFullScaleAccelRange(MPU6050_ACCEL_FS_8);
 
         // Allow direct I2C access to devices connected to the MPU6050 aux bus
         setI2cBypassEnabled(true);
