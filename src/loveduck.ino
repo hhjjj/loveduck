@@ -64,6 +64,8 @@ volatile int whisperValue;
 
 volatile float ax, ay, az, gx, gy, gz, mx, my, mz, azimuth;
 
+volatile float tilt_angle;
+
 volatile bool touch_A_OK;
 volatile bool touch_B_OK;
 volatile bool accel_OK;
@@ -99,9 +101,9 @@ void sendOSCMsg();
 
 void checkSensors();
 
-void checkAccel();
-void checkGyro();
-void checkMagneto();
+void readAccel();
+void readGyro();
+void readMagneto();
 void checkFSR();
 void checkTouch_A();
 void checkTouch_B();
@@ -239,6 +241,8 @@ void initBoard()
   sendOSC_OK = false;
   sendAck_OK = false;
 
+  tilt_angle = 0.0;
+
   // serial is used for debug only
   // Serial.begin(115200);
 
@@ -275,73 +279,115 @@ void setMode(LOVEDUCK_MODES mode)
 
 void sendOSCMsg()
 {
-  if (touch_A_OK == true)
-  {
-    delay(1);
-    touch_A_OK = false;
-  }
+  // if (touch_A_OK == true)
+  // {
+  //   delay(1);
+  //   touch_A_OK = false;
+  // }
+  //
+  // if (touch_B_OK == true)
+  // {
+  //   delay(1);
+  //   touch_B_OK = false;
+  // }
+  //
+  // if (accel_OK == true)
+  // {
+  //   pixelOn();
+  //   OSCMessage outMessage("/accel");
+  //   outMessage.addInt(1);
+  //   outMessage.send(udp,outIP,outPort);
+  //   delay(1);
+  //   pixelOff();
+  //   accel_OK = false;
+  // }
+  //
+  // if (gyro_OK == true)
+  // {
+  //   OSCMessage outMessage("/gyro");
+  //   outMessage.addInt(1);
+  //   outMessage.send(udp,outIP,outPort);
+  //   delay(1);
+  //   gyro_OK = false;
+  // }
+  //
+  // if (FSR_OK == true)
+  // {
+  //   OSCMessage outMessage("/force");
+  //   outMessage.addInt(1);
+  //   outMessage.send(udp,outIP,outPort);
+  //   delay(1);
+  //   FSR_OK = false;
+  // }
+  //
+  // if (whisper_OK == true)
+  // {
+  //   pixelOn();
+  //   OSCMessage outMessage("/wind");
+  //   outMessage.addInt(1);
+  //   outMessage.send(udp,outIP,outPort);
+  //   delay(1);
+  //   pixelOff();
+  //   whisper_OK = false;
+  // }
+  //
+  // if (piezo_OK == true)
+  // {
+  //   pixelOn();
+  //   OSCMessage outMessage("/piezo");
+  //   outMessage.addInt(1);
+  //   outMessage.send(udp,outIP,outPort);
+  //   delay(1);
+  //   pixelOff();
+  //   piezo_OK = false;
+  // }
+  //
+  // if (tear_OK == true)
+  // {
+  //   delay(1);
+  //   tear_OK = false;
+  // }
 
-  if (touch_B_OK == true)
-  {
-    delay(1);
-    touch_B_OK = false;
-  }
+  switch (duck_mode) {
+    case MODE_STANDBY:
 
-  if (accel_OK == true)
-  {
-    pixelOn();
-    OSCMessage outMessage("/accel");
-    outMessage.addInt(1);
-    outMessage.send(udp,outIP,outPort);
-    delay(1);
-    pixelOff();
-    accel_OK = false;
-  }
+      break;
 
-  if (gyro_OK == true)
-  {
-    OSCMessage outMessage("/gyro");
-    outMessage.addInt(1);
-    outMessage.send(udp,outIP,outPort);
-    delay(1);
-    gyro_OK = false;
-  }
+    case MODE_PATIENCE:
+      // for sy(seyoon only!)
+      if(digitalRead(touch_A_Pin) == HIGH)
+      {
+        // check whether accelerometer is available!!
+        // or badvalue will go out!!!!
+        if(accel_OK == true)
+        {
+          OSCMessage outMessage("/gofwd");
+          outMessage.addString(lover_name);
+          outMessage.addFloat(tilt_angle);
+          outMessage.send(udp,outIP,outPort);
+          delay(1);
 
-  if (FSR_OK == true)
-  {
-    OSCMessage outMessage("/force");
-    outMessage.addInt(1);
-    outMessage.send(udp,outIP,outPort);
-    delay(1);
-    FSR_OK = false;
-  }
+          accel_OK = false;
+        }
 
-  if (whisper_OK == true)
-  {
-    pixelOn();
-    OSCMessage outMessage("/wind");
-    outMessage.addInt(1);
-    outMessage.send(udp,outIP,outPort);
-    delay(1);
-    pixelOff();
-    whisper_OK = false;
-  }
+      }
 
-  if (piezo_OK == true)
-  {
-    pixelOn();
-    OSCMessage outMessage("/piezo");
-    outMessage.addInt(1);
-    outMessage.send(udp,outIP,outPort);
-    delay(1);
-    pixelOff();
-    piezo_OK = false;
-  }
+      break;
 
-  if (tear_OK == true)
-  {
-    delay(1);
-    tear_OK = false;
+    case MODE_LOVELY:
+
+      break;
+
+    case MODE_CRUSH:
+
+      break;
+
+    case MODE_SYNC:
+
+      break;
+
+    default:
+      break;
   }
 
 }
@@ -372,8 +418,8 @@ void checkSensors()
 {
   switch (duck_mode) {
     case MODE_STANDBY:
-      // checkAccel();
-      // checkGyro();
+      // readAccel();
+      // readGyro();
       // checkFSR();
       // checkWhisper();
       // checkPiezo();
@@ -382,18 +428,44 @@ void checkSensors()
 
     case MODE_PATIENCE:
       //Serial.println("PATIENCE");
+      if (digitalRead(touch_A_Pin) == HIGH) // for sy(seyoon only!)
+      {
+        readAccel();
+        if (accel_OK == true)
+        {
+          if (az > 0.0)
+          {
+            if (ax > 10.0) ax = 10.0;
+            if (ax < 0.0) ax = 0.0;
+            tilt_angle = map(ax, 0.0, 10.0, 90.0, 0.0);
+          }
+          else
+          {
+            tilt_angle = 0.0;
+          }
+        }
+      }
       break;
 
     case MODE_LOVELY:
       //Serial.println("LOVELY");
+      readAccel();
+      readGyro();
+
       break;
 
     case MODE_CRUSH:
       //Serial.println("CRUSH");
+      readAccel();
+      readGyro();
+
       break;
 
     case MODE_SYNC:
       //Serial.println("SYNC");
+      readAccel();
+      readGyro();
+
       break;
 
     default:
@@ -402,9 +474,8 @@ void checkSensors()
 
 }
 
-void checkAccel()
+void readAccel()
 {
-
   Accelerometer *accelerometer = Sensors::getAccelerometer();
   if(accelerometer) {
       Vector3 a = accelerometer->getAcceleration();
@@ -412,22 +483,21 @@ void checkAccel()
       ay = a.y;
       az = a.z;
       //Serial.printlnf("Acceleration (m/s^2)  %+7.3f, %+7.3f, %+7.3f", a.x, a.y, a.z);
-
-      if (ax > 18.0 || ay > 18.0 || az > 18.0) // 9.8-10 is gravity.
-      {
-        accel_OK = true;
-      }
-
-      if (ax < -18.0 || ay < -18.0 || az < -18.0) // 9.8-10 is gravity.
-      {
-        accel_OK = true;
-      }
+      accel_OK = true;
+      // if (ax > 18.0 || ay > 18.0 || az > 18.0) // 9.8-10 is gravity.
+      // {
+      //   accel_OK = true;
+      // }
+      //
+      // if (ax < -18.0 || ay < -18.0 || az < -18.0) // 9.8-10 is gravity.
+      // {
+      //   accel_OK = true;
+      // }
 
   }
-
 }
 
-void checkGyro()
+void readGyro()
 {
   Gyroscope *gyroscope = Sensors::getGyroscope();
   if(gyroscope) {
@@ -436,21 +506,20 @@ void checkGyro()
       gy = g.y;
       gz = g.z;
       //Serial.printlnf("Rotation (rad/s)      %+7.3f, %+7.3f, %+7.3f", g.x, g.y, g.z);
-      if (gx > 4.3 || gy > 4.3 || gz > 4.3) // 4.3 is almost maximum
-      {
-        gyro_OK = true;
-      }
-
-      if (gx < -4.3 || gy < -4.3 || gz < -4.3) // 4.3 is almost maximum
-      {
-        gyro_OK = true;
-      }
-
-
+      gyro_OK = true;
+      // if (gx > 4.3 || gy > 4.3 || gz > 4.3) // 4.3 is almost maximum
+      // {
+      //   gyro_OK = true;
+      // }
+      //
+      // if (gx < -4.3 || gy < -4.3 || gz < -4.3) // 4.3 is almost maximum
+      // {
+      //   gyro_OK = true;
+      // }
   }
 }
 
-void checkMagneto()
+void readMagneto()
 {
   Magnetometer *magnetometer = Sensors::getMagnetometer();
   if(magnetometer) {
