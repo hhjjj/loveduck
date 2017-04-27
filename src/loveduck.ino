@@ -75,6 +75,9 @@ volatile bool whisper_OK;
 volatile bool piezo_OK;
 volatile bool tear_OK;
 
+volatile bool gofwd_OK;
+volatile bool goback_OK;
+
 volatile bool sendOSC_OK;
 
 volatile bool sendAck_OK;
@@ -238,6 +241,9 @@ void initBoard()
   piezo_OK = false;
   tear_OK = false;
 
+  gofwd_OK = false;
+  goback_OK = false;
+
   sendOSC_OK = false;
   sendAck_OK = false;
 
@@ -359,15 +365,15 @@ void sendOSCMsg()
       {
         // check whether accelerometer is available!!
         // or badvalue will go out!!!!
-        if(accel_OK == true)
+        if(gofwd_OK == true)
         {
           OSCMessage outMessage("/gofwd");
           outMessage.addString(lover_name);
-          outMessage.addFloat(tilt_angle);
+          outMessage.addInt((int)tilt_angle);
           outMessage.send(udp,outIP,outPort);
           delay(1);
 
-          accel_OK = false;
+          gofwd_OK = false;
         }
 
       }
@@ -375,6 +381,14 @@ void sendOSCMsg()
       break;
 
     case MODE_LOVELY:
+      if(gofwd_OK == true)
+      {
+        OSCMessage outMessage("/gofwd");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+        gofwd_OK = false;
+      }
 
       break;
 
@@ -444,13 +458,28 @@ void checkSensors()
             tilt_angle = 0.0;
           }
         }
+        gofwd_OK = true;
+        accel_OK = false;
       }
       break;
 
     case MODE_LOVELY:
       //Serial.println("LOVELY");
-      readAccel();
+      //readAccel();
       readGyro();
+      if (gyro_OK == true)
+      {
+        if (gx > 3.0 || gy > 3.0 || gz > 3.0) // 4.3 is almost maximum
+        {
+          gofwd_OK = true;
+        }
+
+        if (gx < -3.0 || gy < -3.0 || gz < -3.0) // 4.3 is almost maximum
+        {
+          gofwd_OK = true;
+        }
+        gyro_OK = false;
+      }
 
       break;
 
@@ -484,16 +513,6 @@ void readAccel()
       az = a.z;
       //Serial.printlnf("Acceleration (m/s^2)  %+7.3f, %+7.3f, %+7.3f", a.x, a.y, a.z);
       accel_OK = true;
-      // if (ax > 18.0 || ay > 18.0 || az > 18.0) // 9.8-10 is gravity.
-      // {
-      //   accel_OK = true;
-      // }
-      //
-      // if (ax < -18.0 || ay < -18.0 || az < -18.0) // 9.8-10 is gravity.
-      // {
-      //   accel_OK = true;
-      // }
-
   }
 }
 
@@ -507,15 +526,6 @@ void readGyro()
       gz = g.z;
       //Serial.printlnf("Rotation (rad/s)      %+7.3f, %+7.3f, %+7.3f", g.x, g.y, g.z);
       gyro_OK = true;
-      // if (gx > 4.3 || gy > 4.3 || gz > 4.3) // 4.3 is almost maximum
-      // {
-      //   gyro_OK = true;
-      // }
-      //
-      // if (gx < -4.3 || gy < -4.3 || gz < -4.3) // 4.3 is almost maximum
-      // {
-      //   gyro_OK = true;
-      // }
   }
 }
 
