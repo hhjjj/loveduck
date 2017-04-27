@@ -112,7 +112,7 @@ void checkTouch_A();
 void checkTouch_B();
 void checkPiezo();
 void checkTear();
-void checkWhisper();
+void readWhisper();
 
 void PING(OSCMessage &inMessage);
 void setModeToStandby(OSCMessage &inMessage);
@@ -285,74 +285,6 @@ void setMode(LOVEDUCK_MODES mode)
 
 void sendOSCMsg()
 {
-  // if (touch_A_OK == true)
-  // {
-  //   delay(1);
-  //   touch_A_OK = false;
-  // }
-  //
-  // if (touch_B_OK == true)
-  // {
-  //   delay(1);
-  //   touch_B_OK = false;
-  // }
-  //
-  // if (accel_OK == true)
-  // {
-  //   pixelOn();
-  //   OSCMessage outMessage("/accel");
-  //   outMessage.addInt(1);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //   pixelOff();
-  //   accel_OK = false;
-  // }
-  //
-  // if (gyro_OK == true)
-  // {
-  //   OSCMessage outMessage("/gyro");
-  //   outMessage.addInt(1);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //   gyro_OK = false;
-  // }
-  //
-  // if (FSR_OK == true)
-  // {
-  //   OSCMessage outMessage("/force");
-  //   outMessage.addInt(1);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //   FSR_OK = false;
-  // }
-  //
-  // if (whisper_OK == true)
-  // {
-  //   pixelOn();
-  //   OSCMessage outMessage("/wind");
-  //   outMessage.addInt(1);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //   pixelOff();
-  //   whisper_OK = false;
-  // }
-  //
-  // if (piezo_OK == true)
-  // {
-  //   pixelOn();
-  //   OSCMessage outMessage("/piezo");
-  //   outMessage.addInt(1);
-  //   outMessage.send(udp,outIP,outPort);
-  //   delay(1);
-  //   pixelOff();
-  //   piezo_OK = false;
-  // }
-  //
-  // if (tear_OK == true)
-  // {
-  //   delay(1);
-  //   tear_OK = false;
-  // }
 
   switch (duck_mode) {
     case MODE_STANDBY:
@@ -367,6 +299,7 @@ void sendOSCMsg()
         // or badvalue will go out!!!!
         if(gofwd_OK == true)
         {
+          pixelOnGreen();
           OSCMessage outMessage("/gofwd");
           outMessage.addString(lover_name);
           outMessage.addInt((int)tilt_angle);
@@ -374,8 +307,18 @@ void sendOSCMsg()
           delay(1);
 
           gofwd_OK = false;
+          pixelOff();
         }
 
+      }
+      if(goback_OK == true)
+      {
+        OSCMessage outMessage("/goback");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+
+        goback_OK = false;
       }
 
       break;
@@ -383,21 +326,63 @@ void sendOSCMsg()
     case MODE_LOVELY:
       if(gofwd_OK == true)
       {
+        pixelOnRed();
         OSCMessage outMessage("/gofwd");
         outMessage.addString(lover_name);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
+        pixelOff();
+      }
+
+      if(goback_OK == true)
+      {
+        OSCMessage outMessage("/goback");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+
+        goback_OK = false;
       }
 
       break;
 
     case MODE_CRUSH:
 
+      if(gofwd_OK == true)
+      {
+        pixelOnBlue();
+        OSCMessage outMessage("/gofwd");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+        gofwd_OK = false;
+        pixelOff();
+      }
+
+      if(goback_OK == true)
+      {
+        OSCMessage outMessage("/goback");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+
+        goback_OK = false;
+      }
+
       break;
 
     case MODE_SYNC:
 
+      if(goback_OK == true)
+      {
+        OSCMessage outMessage("/goback");
+        outMessage.addString(lover_name);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+
+        goback_OK = false;
+      }
       break;
 
     default:
@@ -435,7 +420,7 @@ void checkSensors()
       // readAccel();
       // readGyro();
       // checkFSR();
-      // checkWhisper();
+      // readWhisper();
       // checkPiezo();
       //Serial.println("STANDBY");
       break;
@@ -461,6 +446,13 @@ void checkSensors()
         gofwd_OK = true;
         accel_OK = false;
       }
+      readWhisper();
+      if(whisperValue > 1000)
+      {
+        gofwd_OK = false;
+        goback_OK = true;
+      }
+
       break;
 
     case MODE_LOVELY:
@@ -481,12 +473,53 @@ void checkSensors()
         gyro_OK = false;
       }
 
+      readWhisper();
+      if(whisperValue > 1000)
+      {
+        gofwd_OK = false;
+        goback_OK = true;
+      }
+
       break;
 
     case MODE_CRUSH:
       //Serial.println("CRUSH");
       readAccel();
+      if(accel_OK == true)
+      {
+        if (ax > 15.0 || ay > 15.0 || az > 15.0) // 9.8-10 is gravity.
+        {
+          gofwd_OK = true;
+        }
+
+        if (ax < -15.0 || ay < -15.0 || az < -15.0) // 9.8-10 is gravity.
+        {
+          gofwd_OK = true;
+        }
+        accel_OK = false;
+      }
+
       readGyro();
+      if(gyro_OK == true)
+      {
+        if (gx > 3.0 || gy > 3.0 || gz > 3.0) // 4.3 is almost maximum
+        {
+          gofwd_OK = true;
+        }
+
+        if (gx < -3.0 || gy < -3.0 || gz < -3.0) // 4.3 is almost maximum
+        {
+          gofwd_OK = true;
+        }
+        gyro_OK = false;
+      }
+
+      readWhisper();
+      if(whisperValue > 1000)
+      {
+        gofwd_OK = false;
+        goback_OK = true;
+      }
 
       break;
 
@@ -494,6 +527,12 @@ void checkSensors()
       //Serial.println("SYNC");
       readAccel();
       readGyro();
+      readWhisper();
+      if(whisperValue > 1000)
+      {
+        gofwd_OK = false;
+        goback_OK = true;
+      }
 
       break;
 
@@ -595,14 +634,14 @@ void checkTear()
   }
 }
 
-void checkWhisper()
+void readWhisper()
 {
   whisperValue = analogRead(whisperAnalogPin);
-  //Serial.println(whisperValue);
-  if(whisperValue > 1000)
-  {
-    whisper_OK = true;
-  }
+  // //Serial.println(whisperValue);
+  // if(whisperValue > 1000)
+  // {
+  //   whisper_OK = true;
+  // }
 }
 
 void PING(OSCMessage &inMessage)
@@ -616,6 +655,8 @@ void setModeToStandby(OSCMessage &inMessage)
 {
     //Serial.println("/standby");
     setMode(MODE_STANDBY);
+    gofwd_OK = false;
+    goback_OK = false;
 //Do something
 }
 
@@ -623,6 +664,8 @@ void setModeToPatience(OSCMessage &inMessage)
 {
     //Serial.println("/patience");
     setMode(MODE_PATIENCE);
+    gofwd_OK = false;
+    goback_OK = false;
 //Do something
 }
 
@@ -630,6 +673,8 @@ void setModeToLovely(OSCMessage &inMessage)
 {
     //Serial.println("/lovely");
     setMode(MODE_LOVELY);
+    gofwd_OK = false;
+    goback_OK = false;
 //Do something
 }
 
@@ -637,6 +682,8 @@ void setModeToCrush(OSCMessage &inMessage)
 {
     //Serial.println("/crush");
     setMode(MODE_CRUSH);
+    gofwd_OK = false;
+    goback_OK = false;
 //Do something
 }
 
@@ -644,6 +691,8 @@ void setModeToSync(OSCMessage &inMessage)
 {
     //Serial.println("/sync");
     setMode(MODE_SYNC);
+    gofwd_OK = false;
+    goback_OK = false;
 //Do something
 }
 
@@ -656,12 +705,32 @@ void sendAck()
   delay(1);
 }
 
-void pixelOn()
+void pixelOnRed()
 {
   int i;
   for (i = 0; i < strip.numPixels(); i++)
   {
     strip.setPixelColor(i, strip.Color(255,0,0));
+  }
+  strip.show();
+}
+
+void pixelOnGreen()
+{
+  int i;
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(0,255,0));
+  }
+  strip.show();
+}
+
+void pixelOnBlue()
+{
+  int i;
+  for (i = 0; i < strip.numPixels(); i++)
+  {
+    strip.setPixelColor(i, strip.Color(0,0,255));
   }
   strip.show();
 }
