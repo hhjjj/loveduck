@@ -1,4 +1,3 @@
-
 // MPU-9250 sensor
 // foremost define!!!!!
 #define SENSORS_MPU9250_ATTACHED
@@ -10,8 +9,6 @@
 
 SYSTEM_MODE(MANUAL);
 SYSTEM_THREAD(ENABLED);
-
-
 
 // FLORA neopixel
 #define PIXEL_PIN D2
@@ -65,7 +62,7 @@ volatile int piezoValue;
 volatile int tearValue;
 volatile int whisperValue;
 
-volatile float ax, ay, az, gx, gy, gz, mx, my, mz, azimuth, temperature;
+volatile float ax, ay, az, gx, gy, gz, mx, my, mz, azimuth;
 
 volatile bool touch_A_OK;
 volatile bool touch_B_OK;
@@ -77,6 +74,8 @@ volatile bool piezo_OK;
 volatile bool tear_OK;
 
 volatile bool sendOSC_OK;
+
+volatile bool sendAck_OK;
 
 // Timer
 IntervalTimer Timer;
@@ -117,8 +116,16 @@ void setModeToLovely(OSCMessage &inMessage);
 void setModeToCrush(OSCMessage &inMessage);
 void setModeToSync(OSCMessage &inMessage);
 
+void sendAck();
 
+// change lover_name and static ip for members
+// "kh": ip 192, 168, 100, 101
+// "hc": ip 192, 168, 100, 102
+// "hj": ip 192, 168, 100, 103
+// "sy": ip 192, 168, 100, 104
+// "yj": ip 192, 168, 100, 105
 
+const String lover_name = "sy";
 
 void setup()
 {
@@ -167,6 +174,12 @@ void loop()
     sendOSC_OK = false;
   }
 
+  if(sendAck_OK == true)
+  {
+    sendAck();
+    sendAck_OK = false;
+  }
+
 	Particle.process();
 }
 
@@ -189,7 +202,13 @@ void initWifi()
 {
 
   // static IP setting
-  IPAddress myAddress(192, 168, 100, 101);
+  // change lover_name and static ip for members
+  // "kh": ip 192, 168, 100, 101
+  // "hc": ip 192, 168, 100, 102
+  // "hj": ip 192, 168, 100, 103
+  // "sy": ip 192, 168, 100, 104
+  // "yj": ip 192, 168, 100, 105
+  IPAddress myAddress(192, 168, 100, 104);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
   IPAddress dns(192, 168, 100, 1);
@@ -218,9 +237,10 @@ void initBoard()
   tear_OK = false;
 
   sendOSC_OK = false;
+  sendAck_OK = false;
 
   // serial is used for debug only
-  Serial.begin(115200);
+  // Serial.begin(115200);
 
   // udp begin for OSC communication
   udp.begin(8001);
@@ -234,7 +254,7 @@ void initBoard()
 
   // setup and start the timer using TIMER6
   // to avoid timer confliction
-  // send OSCMsg every 100 ms
+  // run update() every 100ms
   Timer.begin(update, 100*2, hmSec, TIMER6);
 
 }
@@ -242,7 +262,11 @@ void initBoard()
 void update()
 {
   //Serial.println("update");
+
+  // send OSCMsg every 100 ms
   sendOSC_OK = true;
+
+
 }
 void setMode(LOVEDUCK_MODES mode)
 {
@@ -353,23 +377,23 @@ void checkSensors()
       // checkFSR();
       // checkWhisper();
       // checkPiezo();
-      Serial.println("STANDBY");
+      //Serial.println("STANDBY");
       break;
 
     case MODE_PATIENCE:
-      Serial.println("PATIENCE");
+      //Serial.println("PATIENCE");
       break;
 
     case MODE_LOVELY:
-      Serial.println("LOVELY");
+      //Serial.println("LOVELY");
       break;
 
     case MODE_CRUSH:
-      Serial.println("CRUSH");
+      //Serial.println("CRUSH");
       break;
 
     case MODE_SYNC:
-      Serial.println("SYNC");
+      //Serial.println("SYNC");
       break;
 
     default:
@@ -502,6 +526,57 @@ void checkWhisper()
   }
 }
 
+void PING(OSCMessage &inMessage)
+{
+    //Serial.println("/ping");
+//Do something
+  sendAck_OK = true;
+}
+
+void setModeToStandby(OSCMessage &inMessage)
+{
+    //Serial.println("/standby");
+    setMode(MODE_STANDBY);
+//Do something
+}
+
+void setModeToPatience(OSCMessage &inMessage)
+{
+    //Serial.println("/patience");
+    setMode(MODE_PATIENCE);
+//Do something
+}
+
+void setModeToLovely(OSCMessage &inMessage)
+{
+    //Serial.println("/lovely");
+    setMode(MODE_LOVELY);
+//Do something
+}
+
+void setModeToCrush(OSCMessage &inMessage)
+{
+    //Serial.println("/crush");
+    setMode(MODE_CRUSH);
+//Do something
+}
+
+void setModeToSync(OSCMessage &inMessage)
+{
+    //Serial.println("/sync");
+    setMode(MODE_SYNC);
+//Do something
+}
+
+void sendAck()
+{
+  //Serial.println("ping received!");
+  OSCMessage outMessage("/ok");
+  outMessage.addString(lover_name);
+  outMessage.send(udp,outIP,outPort);
+  delay(1);
+}
+
 void pixelOn()
 {
   int i;
@@ -520,45 +595,4 @@ void pixelOff()
     strip.setPixelColor(i, strip.Color(0,0,0));
   }
   strip.show();
-}
-
-void PING(OSCMessage &inMessage)
-{
-    Serial.println("/ping");
-//Do something
-}
-
-void setModeToStandby(OSCMessage &inMessage)
-{
-    Serial.println("/standby");
-    setMode(MODE_STANDBY);
-//Do something
-}
-
-void setModeToPatience(OSCMessage &inMessage)
-{
-    Serial.println("/patience");
-    setMode(MODE_PATIENCE);
-//Do something
-}
-
-void setModeToLovely(OSCMessage &inMessage)
-{
-    Serial.println("/lovely");
-    setMode(MODE_LOVELY);
-//Do something
-}
-
-void setModeToCrush(OSCMessage &inMessage)
-{
-    Serial.println("/crush");
-    setMode(MODE_CRUSH);
-//Do something
-}
-
-void setModeToSync(OSCMessage &inMessage)
-{
-    Serial.println("/sync");
-    setMode(MODE_SYNC);
-//Do something
 }
