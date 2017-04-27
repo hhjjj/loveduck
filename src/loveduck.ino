@@ -22,11 +22,27 @@ SYSTEM_THREAD(ENABLED);
 typedef enum
 {
   MODE_STANDBY = 0,
-  MODE_VIBRATION,
+  MODE_PATIENCE,
+  MODE_LOVELY,
+  MODE_CRUSH,
+  MODE_SYNC,
 
-} LOVEDUCK_MODE;
+} LOVEDUCK_MODES;
 
-LOVEDUCK_MODE duck_mode;
+LOVEDUCK_MODES duck_mode;
+
+// SYNC Sub-Mode
+typedef enum
+{
+  SUBMODE_STANDBY = 0,
+  SUBMODE_SYNCLEFT,
+  SUBMODE_SYNCRIGHT,
+  SUBMODE_SYNCDOWN,
+  SUBMODE_SYNCJUMP,
+
+} SYNC_MODES;
+
+SYNC_MODES sync_submode;
 
 // pin declaration
 const uint8_t neopixelDataPin = D2;
@@ -38,8 +54,8 @@ const uint8_t ledPin = D7;
 
 const uint8_t FSRAnalogPin = A0;
 const uint8_t whisperAnalogPin = A1;
-// const uint8_t pot_A_Pin = A2;
-// const uint8_t pot_B_Pin = A3;
+// const uint8_t pot_B_Pin = A2;
+// const uint8_t pot_A_Pin = A3;
 const uint8_t piezoAnalogPin = A4;
 const uint8_t tearAnalogPin = A5;
 
@@ -69,7 +85,7 @@ IntervalTimer Timer;
 UDP udp;
 
 // outbound ip
-IPAddress outIP(192, 168, 100, 255);        // braodcast ip addess
+IPAddress outIP(192, 168, 100, 10);        // braodcast ip addess
 unsigned int outPort = 8000;                // port
 
 // neopixel
@@ -78,7 +94,7 @@ Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 void initPort();
 void initWifi();
 void initBoard();
-void setMode(LOVEDUCK_MODE mode);
+void setMode(LOVEDUCK_MODES mode);
 void checkOSCMsg();
 void sendOSCMsg();
 
@@ -93,6 +109,14 @@ void checkTouch_B();
 void checkPiezo();
 void checkTear();
 void checkWhisper();
+
+void PING(OSCMessage &inMessage);
+void setModeToStandby(OSCMessage &inMessage);
+void setModeToPatience(OSCMessage &inMessage);
+void setModeToLovely(OSCMessage &inMessage);
+void setModeToCrush(OSCMessage &inMessage);
+void setModeToSync(OSCMessage &inMessage);
+
 
 
 
@@ -143,12 +167,8 @@ void loop()
     sendOSC_OK = false;
   }
 
-
-
 	Particle.process();
 }
-
-
 
 
 void initPort()
@@ -200,7 +220,7 @@ void initBoard()
   sendOSC_OK = false;
 
   // serial is used for debug only
-  //Serial.begin(115200);
+  Serial.begin(115200);
 
   // udp begin for OSC communication
   udp.begin(8001);
@@ -224,15 +244,13 @@ void update()
   //Serial.println("update");
   sendOSC_OK = true;
 }
-void setMode(LOVEDUCK_MODE mode)
+void setMode(LOVEDUCK_MODES mode)
 {
   duck_mode = mode;
 }
 
 void sendOSCMsg()
 {
-
-
   if (touch_A_OK == true)
   {
     delay(1);
@@ -248,7 +266,7 @@ void sendOSCMsg()
   if (accel_OK == true)
   {
     pixelOn();
-    OSCMessage outMessage("/duck/accel");
+    OSCMessage outMessage("/accel");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
@@ -258,7 +276,7 @@ void sendOSCMsg()
 
   if (gyro_OK == true)
   {
-    OSCMessage outMessage("/duck/gyro");
+    OSCMessage outMessage("/gyro");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
@@ -267,7 +285,7 @@ void sendOSCMsg()
 
   if (FSR_OK == true)
   {
-    OSCMessage outMessage("/duck/fsr");
+    OSCMessage outMessage("/force");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
@@ -277,7 +295,7 @@ void sendOSCMsg()
   if (whisper_OK == true)
   {
     pixelOn();
-    OSCMessage outMessage("/duck/whisper");
+    OSCMessage outMessage("/wind");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
@@ -288,7 +306,7 @@ void sendOSCMsg()
   if (piezo_OK == true)
   {
     pixelOn();
-    OSCMessage outMessage("/duck/piezo");
+    OSCMessage outMessage("/piezo");
     outMessage.addInt(1);
     outMessage.send(udp,outIP,outPort);
     delay(1);
@@ -316,7 +334,12 @@ void checkOSCMsg()
       }
       if( inMessage.parse())
       {
-          //inMessage.route("/ping", PING);
+          inMessage.route("/ping", PING);
+          inMessage.route("/standby", setModeToStandby);
+          inMessage.route("/patience", setModeToPatience);
+          inMessage.route("/cute", setModeToLovely);
+          inMessage.route("/crush", setModeToCrush);
+          inMessage.route("/sync", setModeToSync);
       }
   }
 }
@@ -325,16 +348,28 @@ void checkSensors()
 {
   switch (duck_mode) {
     case MODE_STANDBY:
-      checkAccel();
-      checkGyro();
-      checkFSR();
-      checkWhisper();
-      checkPiezo();
-
-
+      // checkAccel();
+      // checkGyro();
+      // checkFSR();
+      // checkWhisper();
+      // checkPiezo();
+      Serial.println("STANDBY");
       break;
 
-    case MODE_VIBRATION:
+    case MODE_PATIENCE:
+      Serial.println("PATIENCE");
+      break;
+
+    case MODE_LOVELY:
+      Serial.println("LOVELY");
+      break;
+
+    case MODE_CRUSH:
+      Serial.println("CRUSH");
+      break;
+
+    case MODE_SYNC:
+      Serial.println("SYNC");
       break;
 
     default:
@@ -485,4 +520,45 @@ void pixelOff()
     strip.setPixelColor(i, strip.Color(0,0,0));
   }
   strip.show();
+}
+
+void PING(OSCMessage &inMessage)
+{
+    Serial.println("/ping");
+//Do something
+}
+
+void setModeToStandby(OSCMessage &inMessage)
+{
+    Serial.println("/standby");
+    setMode(MODE_STANDBY);
+//Do something
+}
+
+void setModeToPatience(OSCMessage &inMessage)
+{
+    Serial.println("/patience");
+    setMode(MODE_PATIENCE);
+//Do something
+}
+
+void setModeToLovely(OSCMessage &inMessage)
+{
+    Serial.println("/lovely");
+    setMode(MODE_LOVELY);
+//Do something
+}
+
+void setModeToCrush(OSCMessage &inMessage)
+{
+    Serial.println("/crush");
+    setMode(MODE_CRUSH);
+//Do something
+}
+
+void setModeToSync(OSCMessage &inMessage)
+{
+    Serial.println("/sync");
+    setMode(MODE_SYNC);
+//Do something
 }
