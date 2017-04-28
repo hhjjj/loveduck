@@ -19,10 +19,10 @@ SYSTEM_THREAD(ENABLED);
 typedef enum
 {
   MODE_STANDBY = 0,
-  MODE_PATIENCE,
   MODE_LOVELY,
-  MODE_CRUSH,
   MODE_SYNC,
+  MODE_CRUSH,
+  MODE_TRUST,
 
 } LOVEDUCK_MODES;
 
@@ -116,7 +116,7 @@ void readWhisper();
 
 void PING(OSCMessage &inMessage);
 void setModeToStandby(OSCMessage &inMessage);
-void setModeToPatience(OSCMessage &inMessage);
+void setModeToTrust(OSCMessage &inMessage);
 void setModeToLovely(OSCMessage &inMessage);
 void setModeToCrush(OSCMessage &inMessage);
 void setModeToSync(OSCMessage &inMessage);
@@ -130,7 +130,7 @@ void sendAck();
 // "sy": ip 192, 168, 100, 104
 // "yj": ip 192, 168, 100, 105
 
-const String lover_name = "sy";
+const String lover_name = "yj";
 
 void setup()
 {
@@ -213,7 +213,7 @@ void initWifi()
   // "hj": ip 192, 168, 100, 103
   // "sy": ip 192, 168, 100, 104
   // "yj": ip 192, 168, 100, 105
-  IPAddress myAddress(192, 168, 100, 104);
+  IPAddress myAddress(192, 168, 100, 105);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
   IPAddress dns(192, 168, 100, 1);
@@ -291,7 +291,7 @@ void sendOSCMsg()
 
       break;
 
-    case MODE_PATIENCE:
+    case MODE_TRUST:
       // for sy(seyoon only!)
       if(digitalRead(touch_A_Pin) == HIGH)
       {
@@ -405,7 +405,7 @@ void checkOSCMsg()
       {
           inMessage.route("/ping", PING);
           inMessage.route("/standby", setModeToStandby);
-          inMessage.route("/patience", setModeToPatience);
+          inMessage.route("/trust", setModeToTrust);
           inMessage.route("/cute", setModeToLovely);
           inMessage.route("/crush", setModeToCrush);
           inMessage.route("/sync", setModeToSync);
@@ -425,7 +425,7 @@ void checkSensors()
       //Serial.println("STANDBY");
       break;
 
-    case MODE_PATIENCE:
+    case MODE_TRUST:
       //Serial.println("PATIENCE");
       if (digitalRead(touch_A_Pin) == HIGH) // for sy(seyoon only!)
       {
@@ -660,10 +660,10 @@ void setModeToStandby(OSCMessage &inMessage)
 //Do something
 }
 
-void setModeToPatience(OSCMessage &inMessage)
+void setModeToTrust(OSCMessage &inMessage)
 {
-    //Serial.println("/patience");
-    setMode(MODE_PATIENCE);
+    //Serial.println("/trust");
+    setMode(MODE_TRUST);
     gofwd_OK = false;
     goback_OK = false;
 //Do something
