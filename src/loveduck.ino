@@ -120,8 +120,12 @@ void setModeToTrust(OSCMessage &inMessage);
 void setModeToLovely(OSCMessage &inMessage);
 void setModeToCrush(OSCMessage &inMessage);
 void setModeToSync(OSCMessage &inMessage);
+void setMainPlayer(OSCMessage &inMessage);
+
+void disableMainPlayer();
 
 void sendAck();
+
 
 // change lover_name and static ip for members
 // "kh": ip 192, 168, 100, 101
@@ -132,7 +136,9 @@ void sendAck();
 // left: ip 192, 168, 100, 106
 // right: ip 192, 168, 100, 107
 
-const String lover_name = "yj";
+const String lover_name = "hj";
+String mainPlayerAddr = "/main/" + lover_name;
+float mainPlayerFWDVal;
 
 void setup()
 {
@@ -140,32 +146,7 @@ void setup()
   initWifi();
   initBoard();
 
-  int i;
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(0,0,0));
-  }
-  strip.show();
-
-
-  tone(buzzerPin, 4000,100);
-  delay(600);
-
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(255,255,255));
-  }
-  strip.show();
-
-
-
-  tone(buzzerPin, 4000,100);
-  delay(600);
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(0,0,0));
-  }
-  strip.show();
+  setMode(MODE_STANDBY);
 
 }
 
@@ -217,8 +198,8 @@ void initWifi()
   // "yj": ip 192, 168, 100, 105
   // left: ip 192, 168, 100, 106
   // right: ip 192, 168, 100, 107
-  
-  IPAddress myAddress(192, 168, 100, 105);
+
+  IPAddress myAddress(192, 168, 100, 103);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
   IPAddress dns(192, 168, 100, 1);
@@ -265,7 +246,9 @@ void initBoard()
   Wire.begin();
   Sensors::initialize();
 
-  setMode(MODE_STANDBY);
+  strip.setBrightness(80);
+
+  mainPlayerFWDVal = 1.0;
 
   // setup and start the timer using TIMER6
   // to avoid timer confliction
@@ -281,11 +264,15 @@ void update()
   // send OSCMsg every 100 ms
   sendOSC_OK = true;
 
-
 }
+
 void setMode(LOVEDUCK_MODES mode)
 {
   duck_mode = mode;
+  tone(buzzerPin, 4000,100);
+  pixelAllOn(255, 255, 255);
+  delay(500);
+  pixelAllOff();
 }
 
 void sendOSCMsg()
@@ -304,22 +291,23 @@ void sendOSCMsg()
         // or badvalue will go out!!!!
         if(gofwd_OK == true)
         {
-          pixelOnGreen();
-          OSCMessage outMessage("/gofwd");
-          outMessage.addString(lover_name);
-          outMessage.addInt((int)tilt_angle);
+          pixelAllOn(0,255,0);
+          String addr = "/gofwd/" + lover_name;
+          OSCMessage outMessage(addr);
+          outMessage.addFloat(tilt_angle);
           outMessage.send(udp,outIP,outPort);
           delay(1);
 
           gofwd_OK = false;
-          pixelOff();
+          pixelAllOff();
         }
 
       }
+
       if(goback_OK == true)
       {
         OSCMessage outMessage("/goback");
-        outMessage.addString(lover_name);
+        outMessage.addFloat(1.0);
         outMessage.send(udp,outIP,outPort);
         delay(1);
 
@@ -331,19 +319,20 @@ void sendOSCMsg()
     case MODE_LOVELY:
       if(gofwd_OK == true)
       {
-        pixelOnRed();
-        OSCMessage outMessage("/gofwd");
-        outMessage.addString(lover_name);
+        pixelAllOn(255,0,0);
+        String addr = "/gofwd/" + lover_name;
+        OSCMessage outMessage(addr);
+        outMessage.addFloat(mainPlayerFWDVal);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
-        pixelOff();
+        pixelAllOff();
       }
 
       if(goback_OK == true)
       {
         OSCMessage outMessage("/goback");
-        outMessage.addString(lover_name);
+        outMessage.addFloat(1.0);
         outMessage.send(udp,outIP,outPort);
         delay(1);
 
@@ -356,19 +345,20 @@ void sendOSCMsg()
 
       if(gofwd_OK == true)
       {
-        pixelOnBlue();
-        OSCMessage outMessage("/gofwd");
-        outMessage.addString(lover_name);
+        pixelAllOn(0,0,255);
+        String addr = "/gofwd/" + lover_name;
+        OSCMessage outMessage(addr);
+        outMessage.addFloat(mainPlayerFWDVal);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
-        pixelOff();
+        pixelAllOff();
       }
 
       if(goback_OK == true)
       {
         OSCMessage outMessage("/goback");
-        outMessage.addString(lover_name);
+        outMessage.addFloat(1.0);
         outMessage.send(udp,outIP,outPort);
         delay(1);
 
@@ -382,7 +372,7 @@ void sendOSCMsg()
       if(goback_OK == true)
       {
         OSCMessage outMessage("/goback");
-        outMessage.addString(lover_name);
+        outMessage.addFloat(1.0);
         outMessage.send(udp,outIP,outPort);
         delay(1);
 
@@ -414,6 +404,7 @@ void checkOSCMsg()
           inMessage.route("/cute", setModeToLovely);
           inMessage.route("/crush", setModeToCrush);
           inMessage.route("/sync", setModeToSync);
+          inMessage.route(mainPlayerAddr, setMainPlayer);
 
       }
   }
@@ -660,45 +651,61 @@ void PING(OSCMessage &inMessage)
 void setModeToStandby(OSCMessage &inMessage)
 {
     //Serial.println("/standby");
-    setMode(MODE_STANDBY);
-    gofwd_OK = false;
-    goback_OK = false;
+    if(inMessage.getFloat(0)> 0.5)
+    {
+      gofwd_OK = false;
+      goback_OK = false;
+      setMode(MODE_STANDBY);
+    }
 //Do something
 }
 
 void setModeToTrust(OSCMessage &inMessage)
 {
     //Serial.println("/trust");
-    setMode(MODE_TRUST);
-    gofwd_OK = false;
-    goback_OK = false;
+    if(inMessage.getFloat(0)> 0.5)
+    {
+      gofwd_OK = false;
+      goback_OK = false;
+      setMode(MODE_TRUST);
+    }
+
 //Do something
 }
 
 void setModeToLovely(OSCMessage &inMessage)
 {
     //Serial.println("/lovely");
-    setMode(MODE_LOVELY);
-    gofwd_OK = false;
-    goback_OK = false;
+    if(inMessage.getFloat(0)> 0.5)
+    {
+      gofwd_OK = false;
+      goback_OK = false;
+      setMode(MODE_LOVELY);
+    }
 //Do something
 }
 
 void setModeToCrush(OSCMessage &inMessage)
 {
     //Serial.println("/crush");
-    setMode(MODE_CRUSH);
-    gofwd_OK = false;
-    goback_OK = false;
+    if(inMessage.getFloat(0)> 0.5)
+    {
+      gofwd_OK = false;
+      goback_OK = false;
+      setMode(MODE_CRUSH);
+    }
 //Do something
 }
 
 void setModeToSync(OSCMessage &inMessage)
 {
     //Serial.println("/sync");
-    setMode(MODE_SYNC);
-    gofwd_OK = false;
-    goback_OK = false;
+    if(inMessage.getFloat(0)> 0.5)
+    {
+      gofwd_OK = false;
+      goback_OK = false;
+      setMode(MODE_SYNC);
+    }
 //Do something
 }
 
@@ -711,37 +718,39 @@ void sendAck()
   delay(1);
 }
 
-void pixelOnRed()
+void setMainPlayer(OSCMessage &inMessage)
+{
+  float value = inMessage.getFloat(0);
+  //Serial.println(value);
+  if (value > 0.5)
+  {
+    mainPlayerFWDVal = 2.0;
+  }
+  else
+  {
+    mainPlayerFWDVal = 1.0;
+  }
+  //TODO led on!
+}
+
+void disableMainPlayer()
+{
+  mainPlayerFWDVal = 1.0;
+  //TODO led off!
+
+}
+
+void pixelAllOn(int r, int g, int b)
 {
   int i;
   for (i = 0; i < strip.numPixels(); i++)
   {
-    strip.setPixelColor(i, strip.Color(255,0,0));
+    strip.setPixelColor(i, strip.Color(r,g,b));
   }
   strip.show();
 }
 
-void pixelOnGreen()
-{
-  int i;
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(0,255,0));
-  }
-  strip.show();
-}
-
-void pixelOnBlue()
-{
-  int i;
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(0,0,255));
-  }
-  strip.show();
-}
-
-void pixelOff()
+void pixelAllOff()
 {
   int i;
   for (i = 0; i < strip.numPixels(); i++)
