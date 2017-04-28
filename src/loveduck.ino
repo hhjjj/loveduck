@@ -129,6 +129,8 @@ void sendAck();
 // "hj": ip 192, 168, 100, 103
 // "sy": ip 192, 168, 100, 104
 // "yj": ip 192, 168, 100, 105
+// left: ip 192, 168, 100, 106
+// right: ip 192, 168, 100, 107
 
 const String lover_name = "yj";
 
@@ -213,6 +215,9 @@ void initWifi()
   // "hj": ip 192, 168, 100, 103
   // "sy": ip 192, 168, 100, 104
   // "yj": ip 192, 168, 100, 105
+  // left: ip 192, 168, 100, 106
+  // right: ip 192, 168, 100, 107
+  
   IPAddress myAddress(192, 168, 100, 105);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
@@ -409,6 +414,7 @@ void checkOSCMsg()
           inMessage.route("/cute", setModeToLovely);
           inMessage.route("/crush", setModeToCrush);
           inMessage.route("/sync", setModeToSync);
+
       }
   }
 }
