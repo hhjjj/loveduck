@@ -171,7 +171,7 @@ void dumpRawData();
 // left: ip 192, 168, 100, 106
 // right: ip 192, 168, 100, 107
 
-const String lover_name = "sy";
+const String lover_name = "yj";
 String mainPlayerAddr = "/main/" + lover_name;
 float mainPlayerFWDVal;
 
@@ -221,7 +221,7 @@ void loop()
   if(syncTimerStart == true)
   {
     syncTimer.end();
-    syncTimer.begin(checkSyncTimeout, 500*2, hmSec, TIMER7);
+    syncTimer.begin(checkSyncTimeout, 700*2, hmSec, TIMER7);
     syncTimeout = false;
 
     syncTimerStart = false;
@@ -258,7 +258,7 @@ void initWifi()
   // left: ip 192, 168, 100, 106
   // right: ip 192, 168, 100, 107
 
-  IPAddress myAddress(192, 168, 100, 104);
+  IPAddress myAddress(192, 168, 100, 105);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
   IPAddress dns(192, 168, 100, 1);
@@ -322,7 +322,7 @@ void initBoard()
   // run update() every 100ms
   Timer.begin(update, 100*2, hmSec, TIMER6);
 
-  syncTimer.begin(checkSyncTimeout, 500*2, hmSec, TIMER7);
+  syncTimer.begin(checkSyncTimeout, 700*2, hmSec, TIMER7);
   syncTimer.end();
 
 }
@@ -565,7 +565,8 @@ void checkSensors()
           {
             if (ax > 10.0) ax = 10.0;
             if (ax < 0.0) ax = 0.0;
-            tilt_angle = map(ax, 0.0, 10.0, 90.0, 0.0);
+            // tilt_angle = map(ax, 0.0, 10.0, 90.0, 0.0); // map only works on integer
+            tilt_angle = ax * (-9.0) + 90.0;
           }
           else
           {
