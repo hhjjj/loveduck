@@ -37,6 +37,16 @@ typedef enum
 
 JUMP_MODES jump_mode;
 
+typedef enum
+{
+  DOWN_STANDBY = 0,
+  DOWN_STILL,
+  DOWN_OK,
+
+} DOWN_MODES;
+
+DOWN_MODES down_mode;
+
 
 // SYNC Sub-Mode
 typedef enum
@@ -88,12 +98,18 @@ volatile bool tear_OK;
 volatile bool gofwd_OK;
 volatile bool goback_OK;
 
+volatile bool syncTimeout;
+volatile bool syncTimerStart;
+
 volatile bool sendOSC_OK;
 
 volatile bool sendAck_OK;
 
 // Timer
 IntervalTimer Timer;
+
+// sync mode timer
+IntervalTimer syncTimer;
 
 // udp
 UDP udp;
@@ -123,6 +139,13 @@ void checkTouch_B();
 void checkPiezo();
 void checkTear();
 void readWhisper();
+
+void checkSyncLeft(OSCMessage &inMessage);
+void checkSyncRight(OSCMessage &inMessage);
+void checkSyncDown(OSCMessage &inMessage);
+void checkSyncJump(OSCMessage &inMessage);
+
+void checkSyncTimeout();
 
 void PING(OSCMessage &inMessage);
 void setModeToStandby(OSCMessage &inMessage);
@@ -163,6 +186,8 @@ void setup()
 
   setMode(MODE_STANDBY);
   jump_mode = JUMP_STANDBY;
+  down_mode = DOWN_STANDBY;
+  sync_submode = SUBMODE_STANDBY;
 
 }
 
@@ -172,6 +197,7 @@ void loop()
   // set current MODE
   checkOSCMsg();
   checkSensors();
+
   if(sendOSC_OK == true)
   {
     sendOSCMsg();
@@ -190,6 +216,15 @@ void loop()
   {
     sendAck();
     sendAck_OK = false;
+  }
+
+  if(syncTimerStart == true)
+  {
+    syncTimer.end();
+    syncTimer.begin(checkSyncTimeout, 500*2, hmSec, TIMER7);
+    syncTimeout = false;
+
+    syncTimerStart = false;
   }
 
 	Particle.process();
@@ -251,6 +286,9 @@ void initBoard()
   piezo_OK = false;
   tear_OK = false;
 
+  syncTimeout = true;
+  syncTimerStart = false;
+
   gofwd_OK = false;
   goback_OK = false;
 
@@ -258,6 +296,8 @@ void initBoard()
   sendAck_OK = false;
 
   rawdata_OK = false;
+
+
 
   tilt_angle = 0.0;
 
@@ -282,6 +322,9 @@ void initBoard()
   // run update() every 100ms
   Timer.begin(update, 100*2, hmSec, TIMER6);
 
+  syncTimer.begin(checkSyncTimeout, 500*2, hmSec, TIMER7);
+  syncTimer.end();
+
 }
 
 void update()
@@ -291,6 +334,11 @@ void update()
   // send OSCMsg every 100 ms
   sendOSC_OK = true;
 
+}
+
+void checkSyncTimeout()
+{
+  syncTimeout = true;
 }
 
 void setMode(LOVEDUCK_MODES mode)
@@ -395,9 +443,22 @@ void sendOSCMsg()
       break;
 
     case MODE_SYNC:
+      if (gofwd_OK == true)
+      {
+        pixelAllOn(255,255,0);
+        String addr = "/gofwd/" + lover_name;
+        OSCMessage outMessage(addr);
+        outMessage.addFloat(mainPlayerFWDVal);
+        outMessage.send(udp,outIP,outPort);
+        delay(1);
+        gofwd_OK = false;
+        pixelAllOff();
+      }
+
 
       if(goback_OK == true)
       {
+
         OSCMessage outMessage("/goback");
         outMessage.addFloat(1.0);
         outMessage.send(udp,outIP,outPort);
@@ -431,10 +492,51 @@ void checkOSCMsg()
           inMessage.route("/cute", setModeToLovely);
           inMessage.route("/crush", setModeToCrush);
           inMessage.route("/sync", setModeToSync);
+          inMessage.route("/syncleft", checkSyncLeft);
+          inMessage.route("/syncright", checkSyncRight);
+          inMessage.route("/syncdown", checkSyncDown);
+          inMessage.route("/syncjump", checkSyncJump);
+
           inMessage.route(mainPlayerAddr, setMainPlayer);
           inMessage.route(rawDataLoverAddr, setRawDataDump);
 
       }
+  }
+}
+
+void checkSyncLeft(OSCMessage &inMessage)
+{
+  if(inMessage.getFloat(0) > 0.5)
+  {
+    sync_submode = SUBMODE_SYNCLEFT;
+    syncTimerStart = true;
+  }
+}
+
+void checkSyncRight(OSCMessage &inMessage)
+{
+  if(inMessage.getFloat(0) > 0.5)
+  {
+    sync_submode = SUBMODE_SYNCRIGHT;
+    syncTimerStart = true;
+  }
+}
+
+void checkSyncDown(OSCMessage &inMessage)
+{
+  if(inMessage.getFloat(0) > 0.5)
+  {
+    sync_submode = SUBMODE_SYNCDOWN;
+    syncTimerStart = true;
+  }
+}
+
+void checkSyncJump(OSCMessage &inMessage)
+{
+  if(inMessage.getFloat(0) > 0.5)
+  {
+    sync_submode = SUBMODE_SYNCJUMP;
+    syncTimerStart = true;
   }
 }
 
@@ -448,6 +550,8 @@ void checkSensors()
       // readWhisper();
       // checkPiezo();
       //Serial.println("STANDBY");
+
+      // TODO re-init variables!!!!!!!!!!!!!!!!!!!!!!!!!
       break;
 
     case MODE_TRUST:
@@ -544,6 +648,101 @@ void checkSensors()
       //Serial.println("SYNC");
       readAccel();
       readGyro();
+
+      switch(sync_submode)
+      {
+        case SUBMODE_STANDBY:
+          syncTimer.end();
+        break;
+
+        case SUBMODE_SYNCLEFT:
+          // if timeout is false and checkLeft is true
+          // gofwd_OK = true;
+          if(syncTimeout == false)
+          {
+            if (gyro_OK == true)
+            {
+              if( gz > 5 || gx > 5)
+              {
+                gofwd_OK = true;
+                syncTimeout = true;
+              }
+              gyro_OK = false;
+            }
+          }
+        break;
+
+        case SUBMODE_SYNCRIGHT:
+          if(syncTimeout == false)
+          {
+            if (gyro_OK == true)
+            {
+              if( gz < -5 || gx < -5)
+              {
+                gofwd_OK = true;
+                syncTimeout = true;
+              }
+              gyro_OK = false;
+            }
+          }
+        break;
+
+        case SUBMODE_SYNCDOWN:
+          if(syncTimeout == false)
+          {
+            if(accel_OK == true)
+            {
+
+              if ((abs(az) < 11.0 && abs(az) > 9.0)  || (abs(ax) < 11.0 && abs(ax) > 9.0))
+              {
+                down_mode = DOWN_STILL;
+              }
+
+              if (down_mode == DOWN_STILL)
+              {
+                if (abs(az) < 5.0  || abs(ax) < 5.0)
+                {
+                  down_mode = DOWN_STANDBY;
+                  gofwd_OK = true;
+                  syncTimeout = true;
+                }
+              }
+              accel_OK = false;
+            }
+          }
+        break;
+
+        case SUBMODE_SYNCJUMP:
+          if(syncTimeout == false)
+          {
+            if(accel_OK == true)
+            {
+
+              if (abs(az) < 1.0  || abs(ax) < 1.0)
+              {
+                jump_mode = JUMP_FREEFALL;
+              }
+
+              if (jump_mode == JUMP_FREEFALL)
+              {
+                if (abs(az) > 20.0  || abs(ax) > 20.0)
+                {
+                  jump_mode = JUMP_STANDBY;
+                  gofwd_OK = true;
+                  syncTimeout = true;
+                }
+              }
+              accel_OK = false;
+            }
+          }
+        break;
+
+        default:
+        break;
+
+      }
+
+
       readWhisper();
       if(whisperValue > 1000)
       {
