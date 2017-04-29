@@ -171,7 +171,7 @@ void dumpRawData();
 // left: ip 192, 168, 100, 106
 // right: ip 192, 168, 100, 107
 
-const String lover_name = "hj";
+const String lover_name = "sy";
 String mainPlayerAddr = "/main/" + lover_name;
 float mainPlayerFWDVal;
 
@@ -258,7 +258,7 @@ void initWifi()
   // left: ip 192, 168, 100, 106
   // right: ip 192, 168, 100, 107
 
-  IPAddress myAddress(192, 168, 100, 103);
+  IPAddress myAddress(192, 168, 100, 104);
   IPAddress netmask(255, 255, 255, 0);
   IPAddress gateway(192, 168, 100, 1);
   IPAddress dns(192, 168, 100, 1);
@@ -700,12 +700,37 @@ void checkSensors()
 
               if (down_mode == DOWN_STILL)
               {
-                if (abs(az) < 5.0  || abs(ax) < 5.0)
+                // head
+                // abs(ax) ~= 2
+                // az: 9.8 -> 0
+
+
+                // shoulder & back
+                // ax: -9.8 -> -20
+                // abs(az) ~= 2
+
+                // head
+                if (abs(ax) < 2 && abs(az)< 5.0)
                 {
                   down_mode = DOWN_STANDBY;
                   gofwd_OK = true;
                   syncTimeout = true;
                 }
+                else
+                // shoulder & back
+                if(ax < -20 && abs(az) < 2)
+                {
+                  down_mode = DOWN_STANDBY;
+                  gofwd_OK = true;
+                  syncTimeout = true;
+                }
+
+                // if (abs(az) < 5.0  || abs(ax) < 5.0)
+                // {
+                //   down_mode = DOWN_STANDBY;
+                //   gofwd_OK = true;
+                //   syncTimeout = true;
+                // }
               }
               accel_OK = false;
             }
