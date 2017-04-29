@@ -28,6 +28,16 @@ typedef enum
 
 LOVEDUCK_MODES duck_mode;
 
+typedef enum
+{
+  JUMP_STANDBY = 0,
+  JUMP_FREEFALL,
+
+} JUMP_MODES;
+
+JUMP_MODES jump_mode;
+
+
 // SYNC Sub-Mode
 typedef enum
 {
@@ -152,6 +162,7 @@ void setup()
   initBoard();
 
   setMode(MODE_STANDBY);
+  jump_mode = JUMP_STANDBY;
 
 }
 
@@ -174,9 +185,6 @@ void loop()
 
     sendOSC_OK = false;
   }
-
-
-
 
   if(sendAck_OK == true)
   {
@@ -501,34 +509,26 @@ void checkSensors()
 
     case MODE_CRUSH:
       //Serial.println("CRUSH");
+      // detect jump using az(head) or ax(back, shoulder)
+      // 9.8 -> 0 -> 30
       readAccel();
       if(accel_OK == true)
       {
-        if (ax > 15.0 || ay > 15.0 || az > 15.0) // 9.8-10 is gravity.
+
+        if (abs(az) < 1.0  || abs(ax) < 1.0)
         {
-          gofwd_OK = true;
+          jump_mode = JUMP_FREEFALL;
         }
 
-        if (ax < -15.0 || ay < -15.0 || az < -15.0) // 9.8-10 is gravity.
+        if (jump_mode == JUMP_FREEFALL)
         {
-          gofwd_OK = true;
+          if (abs(az) > 25.0  || abs(ax) > 25.0)
+          {
+            jump_mode = JUMP_STANDBY;
+            gofwd_OK = true;
+          }
         }
         accel_OK = false;
-      }
-
-      readGyro();
-      if(gyro_OK == true)
-      {
-        if (gx > 3.0 || gy > 3.0 || gz > 3.0) // 4.3 is almost maximum
-        {
-          gofwd_OK = true;
-        }
-
-        if (gx < -3.0 || gy < -3.0 || gz < -3.0) // 4.3 is almost maximum
-        {
-          gofwd_OK = true;
-        }
-        gyro_OK = false;
       }
 
       readWhisper();
