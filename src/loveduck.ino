@@ -121,10 +121,12 @@ void setModeToLovely(OSCMessage &inMessage);
 void setModeToCrush(OSCMessage &inMessage);
 void setModeToSync(OSCMessage &inMessage);
 void setMainPlayer(OSCMessage &inMessage);
+void setRawDataDump(OSCMessage &inMessage);
 
 void disableMainPlayer();
 
 void sendAck();
+void dumpRawData();
 
 
 // change lover_name and static ip for members
@@ -139,6 +141,9 @@ void sendAck();
 const String lover_name = "hj";
 String mainPlayerAddr = "/main/" + lover_name;
 float mainPlayerFWDVal;
+
+String rawDataLoverAddr = "/dumpdata/" +lover_name;
+volatile bool rawdata_OK;
 
 void setup()
 {
@@ -159,8 +164,19 @@ void loop()
   if(sendOSC_OK == true)
   {
     sendOSCMsg();
+
+    if (rawdata_OK == true)
+    {
+      digitalWrite(ledPin, HIGH);
+      dumpRawData();
+      digitalWrite(ledPin, LOW);
+    }
+
     sendOSC_OK = false;
   }
+
+
+
 
   if(sendAck_OK == true)
   {
@@ -233,7 +249,10 @@ void initBoard()
   sendOSC_OK = false;
   sendAck_OK = false;
 
+  rawdata_OK = false;
+
   tilt_angle = 0.0;
+
 
   // serial is used for debug only
   // Serial.begin(115200);
@@ -246,7 +265,7 @@ void initBoard()
   Wire.begin();
   Sensors::initialize();
 
-  strip.setBrightness(80);
+  strip.setBrightness(30);
 
   mainPlayerFWDVal = 1.0;
 
@@ -405,6 +424,7 @@ void checkOSCMsg()
           inMessage.route("/crush", setModeToCrush);
           inMessage.route("/sync", setModeToSync);
           inMessage.route(mainPlayerAddr, setMainPlayer);
+          inMessage.route(rawDataLoverAddr, setRawDataDump);
 
       }
   }
@@ -738,6 +758,59 @@ void disableMainPlayer()
   mainPlayerFWDVal = 1.0;
   //TODO led off!
 
+}
+
+void setRawDataDump(OSCMessage &inMessage)
+{
+  float value = inMessage.getFloat(0);
+  if (value > 0.5)
+  {
+    rawdata_OK = true;
+  }
+  else
+  {
+    rawdata_OK = false;
+  }
+}
+
+void dumpRawData()
+{
+  // String addr = rawDataLoverAddr;
+  String addr = "/rawdata/" + lover_name;
+  readAccel();
+  readGyro();
+  readMagneto();
+  delay(1);
+  readWhisper();
+
+  //send OSC Msg only when the above read values are available
+  OSCMessage outMessageA(addr);
+  outMessageA.addString("ax");
+  outMessageA.addFloat(ax);
+  outMessageA.addString("ay");
+  outMessageA.addFloat(ay);
+  outMessageA.addString("az");
+  outMessageA.addFloat(az);
+  outMessageA.send(udp,outIP,outPort);
+  delay(1);
+
+  OSCMessage outMessageB(addr);
+  outMessageB.addString("gx");
+  outMessageB.addFloat(gx);
+  outMessageB.addString("gy");
+  outMessageB.addFloat(gy);
+  outMessageB.addString("gz");
+  outMessageB.addFloat(gz);
+  outMessageB.send(udp,outIP,outPort);
+  delay(1);
+
+  OSCMessage outMessageC(addr);
+  outMessageC.addString("d");
+  outMessageC.addFloat(azimuth);
+  outMessageC.addString("w");
+  outMessageC.addInt(whisperValue);
+  outMessageC.send(udp,outIP,outPort);
+  delay(1);
 }
 
 void pixelAllOn(int r, int g, int b)
