@@ -105,6 +105,11 @@ volatile bool sendOSC_OK;
 
 volatile bool sendAck_OK;
 
+volatile bool ledOn_Start;
+volatile int ledOnCount;
+volatile int redValue, blueValue, greenValue;
+const int updatePeriod = 100; // 100 ms
+
 // Timer
 IntervalTimer Timer;
 
@@ -183,11 +188,14 @@ void setup()
   initPort();
   initWifi();
   initBoard();
-
-  setMode(MODE_STANDBY);
   jump_mode = JUMP_STANDBY;
   down_mode = DOWN_STANDBY;
   sync_submode = SUBMODE_STANDBY;
+
+  setMode(MODE_STANDBY);
+  delay(500);
+  tone(buzzerPin, 4000,100);
+  delay(100);
 
 }
 
@@ -226,6 +234,49 @@ void loop()
 
     syncTimerStart = false;
   }
+
+
+  // check led for main player
+  if (mainPlayerFWDVal > 1.5)
+  {
+    redValue = 255;
+    greenValue = 0;
+    blueValue = 0;
+  }
+  else
+  {
+    redValue = 0;
+    greenValue = 255;
+    blueValue = 0;
+  }
+
+  if(ledOn_Start)
+  {
+    // prev led off
+    // current led on
+    // check when to turn off
+
+    int i;
+    for (i = 0; i < strip.numPixels(); i++)
+    {
+      strip.setPixelColor(i, strip.Color(redValue,greenValue,blueValue));
+    }
+    strip.show();
+
+
+    ledOn_Start = false;
+  }
+  else
+  {
+    if(ledOnCount == 0)
+    {
+      pixelAllOff();
+      ledOnCount = -1;
+    }
+  }
+
+
+
 
 	Particle.process();
 }
@@ -297,10 +348,13 @@ void initBoard()
 
   rawdata_OK = false;
 
-
-
   tilt_angle = 0.0;
 
+  ledOn_Start = false;
+  ledOnCount = 0;
+  redValue = 0;
+  greenValue = 0;
+  blueValue = 0;
 
   // serial is used for debug only
   // Serial.begin(115200);
@@ -313,14 +367,14 @@ void initBoard()
   Wire.begin();
   Sensors::initialize();
 
-  strip.setBrightness(30);
+  strip.setBrightness(100);
 
   mainPlayerFWDVal = 1.0;
 
   // setup and start the timer using TIMER6
   // to avoid timer confliction
   // run update() every 100ms
-  Timer.begin(update, 100*2, hmSec, TIMER6);
+  Timer.begin(update, updatePeriod*2, hmSec, TIMER6);
 
   syncTimer.begin(checkSyncTimeout, 700*2, hmSec, TIMER7);
   syncTimer.end();
@@ -334,6 +388,16 @@ void update()
   // send OSCMsg every 100 ms
   sendOSC_OK = true;
 
+  if(ledOnCount > 0)
+  {
+    ledOnCount--;
+  }
+  else
+  {
+    ledOnCount = 0;
+  }
+
+
 }
 
 void checkSyncTimeout()
@@ -345,9 +409,7 @@ void setMode(LOVEDUCK_MODES mode)
 {
   duck_mode = mode;
   tone(buzzerPin, 4000,100);
-  pixelAllOn(255, 255, 255);
-  delay(500);
-  pixelAllOff();
+  pixelAllOn(255, 255, 255,500);
 }
 
 void sendOSCMsg()
@@ -366,7 +428,7 @@ void sendOSCMsg()
         // or badvalue will go out!!!!
         if(gofwd_OK == true)
         {
-          pixelAllOn(0,255,0);
+          pixelAllOn(redValue,greenValue,blueValue,100);
           String addr = "/gofwd/" + lover_name;
           OSCMessage outMessage(addr);
           outMessage.addFloat(tilt_angle);
@@ -374,7 +436,6 @@ void sendOSCMsg()
           delay(1);
 
           gofwd_OK = false;
-          pixelAllOff();
         }
 
       }
@@ -394,14 +455,13 @@ void sendOSCMsg()
     case MODE_LOVELY:
       if(gofwd_OK == true)
       {
-        pixelAllOn(255,0,0);
+        pixelAllOn(redValue,greenValue,blueValue,100);
         String addr = "/gofwd/" + lover_name;
         OSCMessage outMessage(addr);
         outMessage.addFloat(mainPlayerFWDVal);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
-        pixelAllOff();
       }
 
       if(goback_OK == true)
@@ -420,14 +480,13 @@ void sendOSCMsg()
 
       if(gofwd_OK == true)
       {
-        pixelAllOn(0,0,255);
+        pixelAllOn(redValue,greenValue,blueValue,100);
         String addr = "/gofwd/" + lover_name;
         OSCMessage outMessage(addr);
         outMessage.addFloat(mainPlayerFWDVal);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
-        pixelAllOff();
       }
 
       if(goback_OK == true)
@@ -445,14 +504,13 @@ void sendOSCMsg()
     case MODE_SYNC:
       if (gofwd_OK == true)
       {
-        pixelAllOn(255,255,0);
+        pixelAllOn(redValue,greenValue,blueValue,100);
         String addr = "/gofwd/" + lover_name;
         OSCMessage outMessage(addr);
         outMessage.addFloat(mainPlayerFWDVal);
         outMessage.send(udp,outIP,outPort);
         delay(1);
         gofwd_OK = false;
-        pixelAllOff();
       }
 
 
@@ -620,6 +678,7 @@ void checkSensors()
       if(accel_OK == true)
       {
 
+        // DETECT ONE JUMP
         if (abs(az) < 1.0  || abs(ax) < 1.0)
         {
           jump_mode = JUMP_FREEFALL;
@@ -633,6 +692,13 @@ void checkSensors()
             gofwd_OK = true;
           }
         }
+
+        // detect AIR TIME -> NOT WORKING yet
+        // if (abs(az) < 1.0  || abs(ax) < 1.0)
+        // {
+        //   gofwd_OK = true;
+        // }
+
         accel_OK = false;
       }
 
@@ -975,7 +1041,8 @@ void setMainPlayer(OSCMessage &inMessage)
   {
     mainPlayerFWDVal = 1.0;
   }
-  //TODO led on!
+
+  tone(buzzerPin, 4000,100);
 }
 
 void disableMainPlayer()
@@ -1038,14 +1105,15 @@ void dumpRawData()
   delay(1);
 }
 
-void pixelAllOn(int r, int g, int b)
+
+void pixelAllOn(int r, int g, int b, int ms)
 {
-  int i;
-  for (i = 0; i < strip.numPixels(); i++)
-  {
-    strip.setPixelColor(i, strip.Color(r,g,b));
-  }
-  strip.show();
+  redValue = r;
+  greenValue = g;
+  blueValue = b;
+  ledOnCount = (int)(ms / updatePeriod);
+  if (ledOnCount < 0) ledOnCount = 0;
+  ledOn_Start = true;
 }
 
 void pixelAllOff()
@@ -1056,4 +1124,5 @@ void pixelAllOff()
     strip.setPixelColor(i, strip.Color(0,0,0));
   }
   strip.show();
+
 }
